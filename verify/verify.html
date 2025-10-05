@@ -1,135 +1,80 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>awabota VC 検証ページ（W3C準拠）</title>
   <style>
-    body { font-family: system-ui, -apple-system, "Noto Sans JP", sans-serif; margin: 24px; }
-    h1 { font-size: 24px; margin-bottom: 12px; }
-    p  { color:#333; }
-    textarea { width:100%; height:160px; padding:10px; font-size:14px; border:1px solid #ccc; border-radius:6px; resize:vertical; }
-    button { margin-top:12px; padding:10px 18px; font-size:14px; border:0; border-radius:8px; background:#111827; color:#fff; cursor:pointer; }
-    button:disabled { opacity:.5; cursor:wait; }
-    .box { margin-top:16px; padding:12px; border:1px solid #e5e7eb; border-radius:8px; background:#f9fafb; }
-    .ok { color:#047857; font-weight:600; }
-    .ng { color:#dc2626; font-weight:600; }
-    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-    .small { color:#6b7280; font-size:12px; }
+    body {
+      font-family: "Noto Sans JP", sans-serif;
+      background: #f5f7fa;
+      color: #333;
+      padding: 40px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #105a8e;
+      font-size: 1.8rem;
+    }
+    p {
+      line-height: 1.6;
+      font-size: 0.95rem;
+    }
+    textarea {
+      width: 100%;
+      height: 150px;
+      font-family: monospace;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 10px;
+      resize: vertical;
+    }
+    button {
+      margin-top: 10px;
+      background: #105a8e;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0d4a74;
+    }
+    pre {
+      background: #f0f2f5;
+      border-radius: 8px;
+      padding: 15px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 13px;
+      border: 1px solid #ddd;
+    }
+    .note {
+      color: #555;
+      font-size: 0.9rem;
+    }
   </style>
 </head>
 <body>
   <h1>awabota VC 検証ページ（W3C準拠）</h1>
-  <p>VC（JWT）を貼り付けて「検証する」を押すと、<b>DID解決</b>と<b>署名検証</b>を行います。<br>
-     ・発行者 DID は <span class="mono">payload.iss</span> から取得します。<br>
-     ・DID Document は <a href="https://uniresolver.io" target="_blank" rel="noopener">Universal Resolver</a> で取得します。<br>
-     ・署名検証は <a href="https://github.com/panva/jose" target="_blank" rel="noopener">jose</a> の <span class="mono">ES256K</span> で行います。</p>
+  <p>VC（JWT形式）を貼り付けて「検証する」を押すと、<strong>DID解決と署名検証</strong>を行います。</p>
+  <ul class="note">
+    <li>発行者DIDは <code>payload.iss</code> から取得します。</li>
+    <li>DID Documentは <a href="https://resolver.identity.foundation/" target="_blank">Universal Resolver</a> 経由で取得します。</li>
+    <li>署名検証は <code>secp256k1 / ES256K</code> アルゴリズムで実施します。</li>
+  </ul>
 
-  <textarea id="jwt" placeholder="ここに VC の JWT を貼り付け"></textarea>
-  <br />
+  <textarea id="jwt" placeholder="ここにVCのJWTを貼り付け"></textarea>
   <button id="verifyBtn">検証する</button>
 
-  <div id="out" class="box small">結果がここに表示されます。</div>
+  <h3>検証結果</h3>
+  <pre id="result">結果がここに表示されます。</pre>
 
-  <!-- jose を ESM で読み込み -->
-  <script type="module">
-    import { importJWK, jwtVerify, decodeJwt } from 'https://cdn.jsdelivr.net/npm/jose@5.3.0/+esm';
-
-    const $ = (id) => document.getElementById(id);
-    const btn = $('verifyBtn');
-    const out = $('out');
-
-    const b64u = (s) => {
-      try { return atob(s.replace(/-/g,'+').replace(/_/g,'/')); }
-      catch { return null; }
-    };
-
-    const pretty = (obj) =>
-      '<pre>'+escapeHtml(JSON.stringify(obj, null, 2))+'</pre>';
-
-    function escapeHtml(str){
-      return String(str)
-        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
-
-    async function resolveDidDocument(did){
-      // Universal Resolver 経由で DID Document を取得
-      // 例: https://uniresolver.io/1.0/identifiers/did:ion:xxxx
-      const url = `https://uniresolver.io/1.0/identifiers/${encodeURIComponent(did)}`;
-      const res = await fetch(url, { mode: 'cors' });
-      if (!res.ok) throw new Error(`DID解決に失敗: ${res.status} ${res.statusText}`);
-      const data = await res.json();
-      // data.didDocument に本体が入る
-      if (!data.didDocument) throw new Error('didDocument が取得できませんでした');
-      return data.didDocument;
-    }
-
-    // DID Document から公開鍵(JWK) を選ぶ
-    function pickPublicJwk(didDocument){
-      // JWTの検証で使える verificationMethod の JWK を優先的に探す
-      const methods = didDocument.verificationMethod || [];
-      for (const m of methods){
-        if (m.publicKeyJwk) return { vm: m, jwk: m.publicKeyJwk };
-      }
-      // fallback: assertionMethod 参照（id -> verificationMethod 引き）
-      const assertions = didDocument.assertionMethod || [];
-      for (const ref of assertions){
-        const id = typeof ref === 'string' ? ref : ref.id;
-        const found = methods.find(m => m.id === id);
-        if (found?.publicKeyJwk) return { vm: found, jwk: found.publicKeyJwk };
-      }
-      throw new Error('公開鍵JWKが見つかりませんでした（verificationMethod / assertionMethod）');
-    }
-
-    btn.addEventListener('click', async () => {
-      const jwt = $('jwt').value.trim();
-      if (!jwt || jwt.split('.').length !== 3){
-        out.innerHTML = '<span class="ng">✖ JWT 形式が不正です。</span>';
-        return;
-      }
-
-      btn.disabled = true;
-      out.innerHTML = '検証中…';
-
-      try {
-        // 1) まず payload を読む（iss を得る）※署名検証はまだしない
-        const decoded = decodeJwt(jwt); // jose の安全なデコーダ
-        const issuer = decoded.iss;
-        if (!issuer) throw new Error('payload.iss（発行者 DID）がありません');
-
-        // 2) DID 解決
-        const didDoc = await resolveDidDocument(issuer);
-
-        // 3) 公開鍵JWKを抽出
-        const { vm, jwk } = pickPublicJwk(didDoc);
-
-        // 4) JWK→Keyオブジェクトに変換（ES256K）
-        //    jwt の alg は ES256K を想定（あなたの発行スクリプトに合わせる）
-        const key = await importJWK(jwk, 'ES256K');
-
-        // 5) 署名検証
-        const { payload, protectedHeader } = await jwtVerify(jwt, key, {
-          algorithms: ['ES256K'],
-          issuer,                 // iss が一致すること
-        });
-
-        // 6) 成功表示
-        out.innerHTML =
-          `<div class="ok">✅ 署名検証 OK（ES256K）</div>
-           <div>発行者 DID: <code>${escapeHtml(issuer)}</code></div>
-           <div>Verification Method: <code>${escapeHtml(vm.id || '')}</code></div>
-           <div class="box"><b>protected header</b>${pretty(protectedHeader)}</div>
-           <div class="box"><b>payload</b>${pretty(payload)}</div>
-           <div class="box"><b>公開鍵(JWK 抜粋)</b>${pretty({ kty:jwk.kty, crv:jwk.crv, x:jwk.x, y:jwk.y })}</div>`;
-      } catch (e){
-        out.innerHTML = `<div class="ng">✖ エラー: ${escapeHtml(e.message)}</div>`;
-        console.error(e);
-      } finally {
-        btn.disabled = false;
-      }
-    });
-  </script>
+  <!-- 🔹 外部スクリプトをモジュールとして読み込む -->
+  <script type="module" src="./verify.js"></script>
 </body>
 </html>
