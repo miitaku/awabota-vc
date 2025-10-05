@@ -3,13 +3,55 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>awabota VC Verifier</title>
+  <title>awabota VC 検証ページ</title>
   <style>
-    body { font-family: system-ui, sans-serif; background:#f4f8fb; color:#222; margin:0; padding:2rem; }
-    h1 { color:#105a8e; }
-    textarea { width:100%; height:160px; font-family:monospace; margin-top:1rem; }
-    button { margin-top:1rem; background:#105a8e; color:#fff; padding:10px 20px; border:none; border-radius:8px; cursor:pointer; }
-    pre { background:#fff; padding:1rem; border-radius:8px; overflow-x:auto; }
+    body {
+      font-family: "Noto Sans JP", sans-serif;
+      background: #f7f9fc;
+      color: #222;
+      margin: 0;
+      padding: 40px;
+    }
+    h1 {
+      color: #105a8e;
+      font-size: 1.8em;
+      margin-bottom: 10px;
+    }
+    p {
+      font-size: 15px;
+      color: #333;
+    }
+    textarea {
+      width: 100%;
+      height: 160px;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+      resize: vertical;
+    }
+    button {
+      margin-top: 10px;
+      background: #105a8e;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 10px 18px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0d4a77;
+    }
+    pre {
+      margin-top: 25px;
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
   </style>
 </head>
 <body>
@@ -17,22 +59,49 @@
   <p>以下にJWTを貼り付けると、署名と発行者DIDを検証します。</p>
 
   <textarea id="jwt" placeholder="ここにVCのJWTを貼り付け"></textarea>
-  <button onclick="verifyVC()">検証する</button>
+  <br>
+  <button id="verify-btn">検証する</button>
+
   <pre id="result"></pre>
 
-  <script type="module">
-    import { verifyCredential } from 'https://cdn.jsdelivr.net/npm/did-jwt-vc@3.1.2/dist/index.min.js'
+  <script>
+  document.getElementById("verify-btn").addEventListener("click", async () => {
+    const jwt = document.getElementById("jwt").value.trim();
+    const result = document.getElementById("result");
+    result.textContent = "";
 
-    async function verifyVC() {
-      const jwt = document.getElementById('jwt').value.trim()
-      const resultBox = document.getElementById('result')
-      try {
-        const verifiedVC = await verifyCredential(jwt, { resolver: null })
-        resultBox.textContent = JSON.stringify(verifiedVC, null, 2)
-      } catch (e) {
-        resultBox.textContent = '❌ 検証エラー: ' + e.message
-      }
+    if (!jwt) {
+      alert("JWTを入力してください。");
+      return;
     }
+
+    try {
+      // JWTを分割
+      const [headerB64, payloadB64, signatureB64] = jwt.split(".");
+      if (!headerB64 || !payloadB64 || !signatureB64) {
+        throw new Error("JWT形式が不正です（3つの部分に分かれていません）");
+      }
+
+      // Base64デコード
+      const header = JSON.parse(atob(headerB64));
+      const payload = JSON.parse(atob(payloadB64));
+
+      // 結果を表示
+      result.textContent = JSON.stringify(
+        {
+          message: "✅ JWT解析成功",
+          header,
+          payload,
+          signature: signatureB64
+        },
+        null,
+        2
+      );
+    } catch (e) {
+      result.textContent = "❌ エラー: " + e.message;
+      console.error(e);
+    }
+  });
   </script>
 </body>
 </html>
