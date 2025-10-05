@@ -1,0 +1,14 @@
+{
+  "@context": ["https://www.w3.org/2018/credentials/v1"],
+  "type": ["VerifiableCredential", "FounderIONVC"],
+  "issuer": "did:ion:EiCLBKiG6J0qm6OU7lHSgoVf3wsbBBCCVvv57xND2a5RNg",
+  "issuanceDate": "2025-10-05T00:00:00Z",
+  "credentialSubject": {
+    "id": "did:ion:EiCLBKiG6J0qm6OU7lHSgoVf3wsbBBCCVvv57xND2a5RNg",
+    "title": "awabota ION Founder VC",
+    "name": "kazukun",
+    "role": "Founder",
+    "organization": "awabota",
+    "description": "awabota ION VC の初期発行者として、信用経済の根を築いたことを証明する。"
+  }
+}
